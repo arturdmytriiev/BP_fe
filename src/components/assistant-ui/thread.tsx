@@ -7,13 +7,37 @@ import {
 } from "@assistant-ui/react";
 
 function Bubble({ children, kind }: { children: React.ReactNode; kind: "user" | "assistant" }) {
-    const base =
-        "max-w-[75%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap";
-    const cls =
-        kind === "user"
-            ? `${base} ml-auto bg-blue-600 text-white`
-            : `${base} mr-auto bg-zinc-200 text-zinc-900`;
-    return <div className={cls}>{children}</div>;
+    const isUser = kind === "user";
+
+    return (
+        <div
+            className="animate-message-enter"
+            style={{
+                maxWidth: "min(75%, 48rem)",
+                marginLeft: isUser ? "auto" : "0",
+                marginRight: isUser ? "0" : "auto",
+            }}
+        >
+            <div
+                style={{
+                    background: isUser ? "var(--user-bubble)" : "var(--assistant-bubble)",
+                    color: isUser ? "var(--user-bubble-text)" : "var(--assistant-bubble-text)",
+                    border: isUser ? "none" : "1px solid var(--assistant-bubble-border)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: "0.875rem 1rem",
+                    fontSize: "var(--font-size-base)",
+                    lineHeight: "var(--line-height-base)",
+                    boxShadow: "var(--shadow-soft)",
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                }}
+            >
+                <div className="message-content">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function UserMessage() {
@@ -36,31 +60,109 @@ function AssistantMessage() {
     );
 }
 
+function EmptyState() {
+    return (
+        <div
+            style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "16rem",
+                padding: "2rem",
+                textAlign: "center",
+            }}
+        >
+            <div
+                style={{
+                    fontSize: "2.5rem",
+                    marginBottom: "1rem",
+                    opacity: 0.3,
+                }}
+            >
+                💬
+            </div>
+            <div
+                style={{
+                    color: "var(--text-muted)",
+                    fontSize: "var(--font-size-sm)",
+                    fontWeight: 500,
+                }}
+            >
+                Напиши сообщение, чтобы начать чат
+            </div>
+        </div>
+    );
+}
+
 export function Thread() {
     return (
-        <ThreadPrimitive.Root className="flex h-full flex-col">
-            <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto p-4 space-y-3">
-                <ThreadPrimitive.Empty>
-                    <div className="text-zinc-500 text-sm">Напиши сообщение…</div>
-                </ThreadPrimitive.Empty>
+        <ThreadPrimitive.Root
+            className="flex h-full flex-col"
+            style={{
+                background: "var(--bg)",
+            }}
+        >
+            {/* Messages Viewport */}
+            <ThreadPrimitive.Viewport
+                className="flex-1 overflow-y-auto"
+                style={{
+                    padding: "1.5rem 1rem",
+                }}
+            >
+                <div
+                    style={{
+                        maxWidth: "56rem",
+                        margin: "0 auto",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "1rem",
+                    }}
+                >
+                    <ThreadPrimitive.Empty>
+                        <EmptyState />
+                    </ThreadPrimitive.Empty>
 
-                <ThreadPrimitive.Messages
-                    components={{ UserMessage, AssistantMessage }}
-                />
+                    <ThreadPrimitive.Messages
+                        components={{ UserMessage, AssistantMessage }}
+                    />
+                </div>
             </ThreadPrimitive.Viewport>
 
-            <div className="border-t p-3">
-                <ComposerPrimitive.Root className="flex gap-2">
-                    <ComposerPrimitive.Input
-                        className="flex-1 rounded-lg border px-3 py-2"
-                        placeholder="Сообщение…"
-                    />
-                    <ComposerPrimitive.Send asChild>
-                        <button className="rounded-lg border px-4 py-2">
-                            Send
-                        </button>
-                    </ComposerPrimitive.Send>
-                </ComposerPrimitive.Root>
+            {/* Composer Area */}
+            <div
+                style={{
+                    background: "var(--surface)",
+                    borderTop: "1px solid var(--border)",
+                    padding: "1rem",
+                    boxShadow: "var(--shadow-soft)",
+                }}
+            >
+                <div
+                    style={{
+                        maxWidth: "56rem",
+                        margin: "0 auto",
+                    }}
+                >
+                    <ComposerPrimitive.Root
+                        className="flex gap-2"
+                        style={{
+                            alignItems: "flex-end",
+                        }}
+                    >
+                        <div className="flex-1 composer-input-wrapper">
+                            <ComposerPrimitive.Input
+                                placeholder="Сообщение…"
+                                className="composer-input"
+                            />
+                        </div>
+                        <ComposerPrimitive.Send asChild>
+                            <button className="composer-send-button">
+                                Отправить
+                            </button>
+                        </ComposerPrimitive.Send>
+                    </ComposerPrimitive.Root>
+                </div>
             </div>
         </ThreadPrimitive.Root>
     );
