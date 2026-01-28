@@ -9,23 +9,13 @@ import {
     type ThreadHistoryAdapter,
 } from "@assistant-ui/react";
 
-function safeRandomId() {
-    return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-}
-
 function getOrCreateSessionId(storageKey: string) {
     if (typeof window === "undefined") return "temp-session";
-    try {
-        const storage = window.localStorage;
-        const existing = storage.getItem(storageKey);
-        if (existing) return existing;
-        const id = safeRandomId();
-        storage.setItem(storageKey, id);
-        return id;
-    } catch {
-        // storage может быть недоступен (политики/инкогнито/ограничения)
-        return `temp-${safeRandomId()}`;
-    }
+    const existing = localStorage.getItem(storageKey);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    localStorage.setItem(storageKey, id);
+    return id;
 }
 
 /**
@@ -79,12 +69,19 @@ function parseAgentFlowData(parsed: any): string | null {
 }
 
 export function MyRuntimeProvider({ children }: { children: ReactNode }) {
-    // Важно: не читаем localStorage во время SSR/первого рендера
-    const [sessionId, setSessionId] = useState("temp-session");
+    // Если у тебя есть auth — вместо localStorage просто используй userId
+    const [sessionId, setSessionId] = useState(() => {
+        if (typeof window === "undefined") return "temp-session";
+        return getOrCreateSessionId("flowise_session_id");
+    });
 
     useEffect(() => {
-        setSessionId(getOrCreateSessionId("flowise_session_id"));
-    }, []);
+        // Ensure we have the correct session ID on the client
+        const id = getOrCreateSessionId("flowise_session_id");
+        if (id !== sessionId) {
+            setSessionId(id);
+        }
+    }, [sessionId]);
 
     const modelAdapter = useMemo<ChatModelAdapter>(
         () => ({
@@ -275,6 +272,6 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
     return (
         <AssistantRuntimeProvider runtime={runtime}>
             {children}
-        </AssistantRuntimeProvider>
+            </AssistantRuntimeProvider>
     );
 }
