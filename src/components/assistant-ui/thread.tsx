@@ -89,7 +89,7 @@ function EmptyState() {
                     fontWeight: 500,
                 }}
             >
-                Напиши сообщение, чтобы начать чат
+                Write message to start chat
             </div>
         </div>
     );
@@ -152,13 +152,13 @@ export function Thread() {
                     >
                         <div className="flex-1 composer-input-wrapper">
                             <ComposerPrimitive.Input
-                                placeholder="Сообщение…"
+                                placeholder="Message..."
                                 className="composer-input"
                             />
                         </div>
                         <ComposerPrimitive.Send asChild>
                             <button className="composer-send-button">
-                                Отправить
+                                Send
                             </button>
                         </ComposerPrimitive.Send>
                     </ComposerPrimitive.Root>
