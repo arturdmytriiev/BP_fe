@@ -68,9 +68,8 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                         // DEBUG: логируем что приходит от сервера
                         console.log("[Stream chunk]:", chunk);
 
-                        // Flowise отправляет данные в формате:
-                        // event: token\ndata: "текст"\n\n
-                        // И системные сообщения: message:FINISHED, message:{...}, message[DONE]
+                        // Flowise может отправлять данные в разных форматах
+                        // Попробуем обработать как SSE или как обычный текстовый поток
                         const lines = buffer.split("\n");
                         buffer = lines.pop() || "";
 
@@ -80,13 +79,12 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
 
                             console.log("[Stream line]:", trimmed);
 
-                            // Пропускаем системные сообщения Flowise
-                            if (trimmed.startsWith("message:")) continue;
-                            if (trimmed.startsWith("message[")) continue;
+                            // Пропускаем event: строки
                             if (trimmed.startsWith("event:")) continue;
 
-                            // Извлекаем данные после "data:"
                             let dataContent = trimmed;
+
+                            // Извлекаем данные после "data:"
                             if (trimmed.startsWith("data:")) {
                                 dataContent = trimmed.slice(5).trim();
                             }
@@ -97,39 +95,30 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                             try {
                                 const parsed = JSON.parse(dataContent);
 
-                                // Пропускаем системные JSON объекты (агент-флоу данные)
-                                if (parsed.status || parsed.previousNodeIds || parsed.chatId || parsed.chatMessageId) {
-                                    continue;
-                                }
-
-                                // Токен текста (основной формат для стриминга)
+                                // Разные форматы Flowise
                                 if (typeof parsed === "string") {
                                     accumulatedText += parsed;
-                                    yield {
-                                        content: [{ type: "text", text: accumulatedText }],
-                                    };
                                 } else if (parsed.token) {
                                     accumulatedText += parsed.token;
-                                    yield {
-                                        content: [{ type: "text", text: accumulatedText }],
-                                    };
-                                } else if (parsed.text && !parsed.status) {
-                                    // Финальный текст (но не системный объект)
+                                } else if (parsed.text) {
                                     accumulatedText = parsed.text;
+                                } else if (parsed.data) {
+                                    accumulatedText += typeof parsed.data === "string"
+                                        ? parsed.data
+                                        : JSON.stringify(parsed.data);
+                                } else if (parsed.message) {
+                                    accumulatedText += parsed.message;
+                                }
+
+                                if (accumulatedText) {
                                     yield {
                                         content: [{ type: "text", text: accumulatedText }],
                                     };
                                 }
                             } catch {
-                                // Не JSON - это может быть простой текстовый токен
-                                // Но пропускаем служебные строки
-                                if (
-                                    !dataContent.startsWith("[") &&
-                                    !dataContent.startsWith("{") &&
-                                    dataContent !== "ping" &&
-                                    !dataContent.includes("FINISHED") &&
-                                    !dataContent.includes("previousNodeIds")
-                                ) {
+                                // Не JSON - просто добавляем как текст
+                                // Но пропускаем служебные сообщения SSE
+                                if (!dataContent.startsWith("[") && dataContent !== "ping") {
                                     accumulatedText += dataContent;
                                     yield {
                                         content: [{ type: "text", text: accumulatedText }],
@@ -139,29 +128,26 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                         }
                     }
 
-                    // Обрабатываем остаток буфера (если есть)
+                    // Обрабатываем остаток буфера
                     if (buffer.trim()) {
                         const remaining = buffer.trim();
-                        // Пропускаем системные сообщения
-                        if (!remaining.startsWith("message:") && !remaining.startsWith("message[")) {
-                            const dataMatch = remaining.startsWith("data:")
-                                ? remaining.slice(5).trim()
-                                : remaining;
+                        const dataMatch = remaining.startsWith("data:")
+                            ? remaining.slice(5).trim()
+                            : remaining;
 
-                            if (dataMatch) {
-                                try {
-                                    const parsed = JSON.parse(dataMatch);
-                                    if (parsed.status || parsed.previousNodeIds || parsed.chatId) {
-                                        // Системные данные - пропускаем
-                                    } else if (typeof parsed === "string") {
-                                        accumulatedText += parsed;
-                                    } else if (parsed.token) {
-                                        accumulatedText += parsed.token;
-                                    } else if (parsed.text && !parsed.status) {
-                                        accumulatedText = parsed.text;
-                                    }
-                                } catch {
-                                    // Не добавляем остаток если это не чистый текст
+                        if (dataMatch) {
+                            try {
+                                const parsed = JSON.parse(dataMatch);
+                                if (typeof parsed === "string") {
+                                    accumulatedText += parsed;
+                                } else if (parsed.token) {
+                                    accumulatedText += parsed.token;
+                                } else if (parsed.text) {
+                                    accumulatedText = parsed.text;
+                                }
+                            } catch {
+                                if (!dataMatch.startsWith("[") && dataMatch !== "ping") {
+                                    accumulatedText += dataMatch;
                                 }
                             }
                         }
