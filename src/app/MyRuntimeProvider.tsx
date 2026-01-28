@@ -71,8 +71,9 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                         // DEBUG: логируем что приходит от сервера
                         console.log("[Stream chunk]:", chunk);
 
-                        // Flowise может отправлять данные в разных форматах
-                        // Попробуем обработать как SSE или как обычный текстовый поток
+                        // Flowise отправляет данные в формате:
+                        // event: token\ndata: "текст"\n\n
+                        // И системные сообщения: message:FINISHED, message:{...}, message[DONE]
                         const lines = buffer.split("\n");
                         buffer = lines.pop() || "";
 
@@ -82,12 +83,13 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
 
                             console.log("[Stream line]:", trimmed);
 
-                            // Пропускаем event: строки
+                            // Пропускаем системные сообщения Flowise
+                            if (trimmed.startsWith("message:")) continue;
+                            if (trimmed.startsWith("message[")) continue;
                             if (trimmed.startsWith("event:")) continue;
 
-                            let dataContent = trimmed;
-
                             // Извлекаем данные после "data:"
+                            let dataContent = trimmed;
                             if (trimmed.startsWith("data:")) {
                                 dataContent = trimmed.slice(5).trim();
                             }
@@ -98,30 +100,39 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                             try {
                                 const parsed = JSON.parse(dataContent);
 
-                                // Разные форматы Flowise
-                                if (typeof parsed === "string") {
-                                    accumulatedText += parsed;
-                                } else if (parsed.token) {
-                                    accumulatedText += parsed.token;
-                                } else if (parsed.text) {
-                                    accumulatedText = parsed.text;
-                                } else if (parsed.data) {
-                                    accumulatedText += typeof parsed.data === "string"
-                                        ? parsed.data
-                                        : JSON.stringify(parsed.data);
-                                } else if (parsed.message) {
-                                    accumulatedText += parsed.message;
+                                // Пропускаем системные JSON объекты (агент-флоу данные)
+                                if (parsed.status || parsed.previousNodeIds || parsed.chatId || parsed.chatMessageId) {
+                                    continue;
                                 }
 
-                                if (accumulatedText) {
+                                // Токен текста (основной формат для стриминга)
+                                if (typeof parsed === "string") {
+                                    accumulatedText += parsed;
+                                    yield {
+                                        content: [{ type: "text", text: accumulatedText }],
+                                    };
+                                } else if (parsed.token) {
+                                    accumulatedText += parsed.token;
+                                    yield {
+                                        content: [{ type: "text", text: accumulatedText }],
+                                    };
+                                } else if (parsed.text && !parsed.status) {
+                                    // Финальный текст (но не системный объект)
+                                    accumulatedText = parsed.text;
                                     yield {
                                         content: [{ type: "text", text: accumulatedText }],
                                     };
                                 }
                             } catch {
-                                // Не JSON - просто добавляем как текст
-                                // Но пропускаем служебные сообщения SSE
-                                if (!dataContent.startsWith("[") && dataContent !== "ping") {
+                                // Не JSON - это может быть простой текстовый токен
+                                // Но пропускаем служебные строки
+                                if (
+                                    !dataContent.startsWith("[") &&
+                                    !dataContent.startsWith("{") &&
+                                    dataContent !== "ping" &&
+                                    !dataContent.includes("FINISHED") &&
+                                    !dataContent.includes("previousNodeIds")
+                                ) {
                                     accumulatedText += dataContent;
                                     yield {
                                         content: [{ type: "text", text: accumulatedText }],
@@ -131,26 +142,29 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                         }
                     }
 
-                    // Обрабатываем остаток буфера
+                    // Обрабатываем остаток буфера (если есть)
                     if (buffer.trim()) {
                         const remaining = buffer.trim();
-                        const dataMatch = remaining.startsWith("data:")
-                            ? remaining.slice(5).trim()
-                            : remaining;
+                        // Пропускаем системные сообщения
+                        if (!remaining.startsWith("message:") && !remaining.startsWith("message[")) {
+                            const dataMatch = remaining.startsWith("data:")
+                                ? remaining.slice(5).trim()
+                                : remaining;
 
-                        if (dataMatch) {
-                            try {
-                                const parsed = JSON.parse(dataMatch);
-                                if (typeof parsed === "string") {
-                                    accumulatedText += parsed;
-                                } else if (parsed.token) {
-                                    accumulatedText += parsed.token;
-                                } else if (parsed.text) {
-                                    accumulatedText = parsed.text;
-                                }
-                            } catch {
-                                if (!dataMatch.startsWith("[") && dataMatch !== "ping") {
-                                    accumulatedText += dataMatch;
+                            if (dataMatch) {
+                                try {
+                                    const parsed = JSON.parse(dataMatch);
+                                    if (parsed.status || parsed.previousNodeIds || parsed.chatId) {
+                                        // Системные данные - пропускаем
+                                    } else if (typeof parsed === "string") {
+                                        accumulatedText += parsed;
+                                    } else if (parsed.token) {
+                                        accumulatedText += parsed.token;
+                                    } else if (parsed.text && !parsed.status) {
+                                        accumulatedText = parsed.text;
+                                    }
+                                } catch {
+                                    // Не добавляем остаток если это не чистый текст
                                 }
                             }
                         }
