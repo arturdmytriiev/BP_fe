@@ -4,6 +4,7 @@ import {
     ThreadPrimitive,
     ComposerPrimitive,
     MessagePrimitive,
+    useThread,
 } from "@assistant-ui/react";
 
 /**
@@ -44,14 +45,13 @@ function TypingIndicator() {
 
 /**
  * Компонент для отображения индикатора во время загрузки
- * Использует ThreadPrimitive.If для условного рендеринга
  */
 function LoadingIndicator() {
-    return (
-        <ThreadPrimitive.If running>
-            <TypingIndicator />
-        </ThreadPrimitive.If>
-    );
+    const isRunning = useThread((t) => t.isRunning);
+
+    if (!isRunning) return null;
+
+    return <TypingIndicator />;
 }
 
 function Bubble({ children, kind }: { children: React.ReactNode; kind: "user" | "assistant" }) {
