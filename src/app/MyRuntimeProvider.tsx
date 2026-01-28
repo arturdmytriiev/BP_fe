@@ -18,56 +18,6 @@ function getOrCreateSessionId(storageKey: string) {
     return id;
 }
 
-/**
- * Извлекает ответ Assistant из chat history.
- * Формат: "QUESTION: ...\n\nCHAT_HISTORY: Human: ...\nAssistant: ..."
- * Возвращает текст после последнего "Assistant:" или null если не найден.
- */
-function extractAssistantResponse(content: string): string | null {
-    // Ищем последнее вхождение "Assistant:" и берём всё после него
-    const assistantMarker = "Assistant:";
-    const lastIndex = content.lastIndexOf(assistantMarker);
-    if (lastIndex === -1) return null;
-
-    const afterAssistant = content.slice(lastIndex + assistantMarker.length).trim();
-    // Убираем возможные trailing системные данные
-    return afterAssistant || null;
-}
-
-/**
- * Обрабатывает agentFlowExecutedData событие и извлекает ответ Assistant.
- * Возвращает текст ответа или null если не найден.
- */
-function parseAgentFlowData(parsed: any): string | null {
-    if (parsed.event !== "agentFlowExecutedData" || !Array.isArray(parsed.data)) {
-        return null;
-    }
-
-    // Ищем в данных узлов сообщения с chat history
-    for (const node of parsed.data) {
-        const messages = node?.data?.input?.messages;
-        if (!Array.isArray(messages)) continue;
-
-        for (const msg of messages) {
-            if (msg?.content && typeof msg.content === "string") {
-                const response = extractAssistantResponse(msg.content);
-                if (response) {
-                    console.log("[AgentFlow] Extracted assistant response:", response);
-                    return response;
-                }
-            }
-        }
-
-        // Также проверяем output если есть
-        const output = node?.data?.output;
-        if (output?.text) {
-            return output.text;
-        }
-    }
-
-    return null;
-}
-
 export function MyRuntimeProvider({ children }: { children: ReactNode }) {
     // Если у тебя есть auth — вместо localStorage просто используй userId
     const [sessionId, setSessionId] = useState(() => {
@@ -147,16 +97,6 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                             try {
                                 const parsed = JSON.parse(dataContent);
 
-                                // Обрабатываем agentFlowExecutedData - извлекаем ответ Assistant
-                                const agentFlowResponse = parseAgentFlowData(parsed);
-                                if (agentFlowResponse) {
-                                    accumulatedText = agentFlowResponse;
-                                    yield {
-                                        content: [{ type: "text", text: accumulatedText }],
-                                    };
-                                    continue;
-                                }
-
                                 // Пропускаем системные JSON объекты (агент-флоу данные)
                                 if (parsed.status || parsed.previousNodeIds || parsed.chatId || parsed.chatMessageId) {
                                     continue;
@@ -211,12 +151,7 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                             if (dataMatch) {
                                 try {
                                     const parsed = JSON.parse(dataMatch);
-
-                                    // Обрабатываем agentFlowExecutedData в буфере
-                                    const agentFlowResponse = parseAgentFlowData(parsed);
-                                    if (agentFlowResponse) {
-                                        accumulatedText = agentFlowResponse;
-                                    } else if (parsed.status || parsed.previousNodeIds || parsed.chatId) {
+                                    if (parsed.status || parsed.previousNodeIds || parsed.chatId) {
                                         // Системные данные - пропускаем
                                     } else if (typeof parsed === "string") {
                                         accumulatedText += parsed;
