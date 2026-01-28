@@ -5,6 +5,7 @@ import {
     ComposerPrimitive,
     MessagePrimitive,
     useThread,
+    useMessage,
 } from "@assistant-ui/react";
 
 /**
@@ -99,6 +100,21 @@ function UserMessage() {
 }
 
 function AssistantMessage() {
+    // Проверяем есть ли контент в сообщении
+    const hasContent = useMessage((m) => {
+        if (!m.content || m.content.length === 0) return false;
+        // Проверяем есть ли текст в частях сообщения
+        return m.content.some((part) => {
+            if (part.type === "text" && part.text && part.text.trim().length > 0) {
+                return true;
+            }
+            return false;
+        });
+    });
+
+    // Не показываем пустой пузырь пока нет контента
+    if (!hasContent) return null;
+
     return (
         <MessagePrimitive.Root className="flex">
             <Bubble kind="assistant">
