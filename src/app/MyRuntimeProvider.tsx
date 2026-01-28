@@ -62,92 +62,37 @@ export function MyRuntimeProvider({ children }: { children: ReactNode }) {
                         const { done, value } = await reader.read();
                         if (done) break;
 
-                        const chunk = decoder.decode(value, { stream: true });
-                        buffer += chunk;
-
-                        // DEBUG: логируем что приходит от сервера
-                        console.log("[Stream chunk]:", chunk);
-
-                        // Flowise может отправлять данные в разных форматах
-                        // Попробуем обработать как SSE или как обычный текстовый поток
+                        buffer += decoder.decode(value, { stream: true });
                         const lines = buffer.split("\n");
                         buffer = lines.pop() || "";
 
                         for (const line of lines) {
                             const trimmed = line.trim();
-                            if (!trimmed) continue;
+                            if (!trimmed || trimmed.startsWith("event:")) continue;
 
-                            console.log("[Stream line]:", trimmed);
-
-                            // Пропускаем event: строки
-                            if (trimmed.startsWith("event:")) continue;
-
-                            let dataContent = trimmed;
-
-                            // Извлекаем данные после "data:"
                             if (trimmed.startsWith("data:")) {
-                                dataContent = trimmed.slice(5).trim();
-                            }
+                                const jsonStr = trimmed.slice(5).trim();
+                                if (!jsonStr) continue;
 
-                            if (!dataContent) continue;
-
-                            // Пробуем распарсить как JSON
-                            try {
-                                const parsed = JSON.parse(dataContent);
-
-                                // Разные форматы Flowise
-                                if (typeof parsed === "string") {
-                                    accumulatedText += parsed;
-                                } else if (parsed.token) {
-                                    accumulatedText += parsed.token;
-                                } else if (parsed.text) {
-                                    accumulatedText = parsed.text;
-                                } else if (parsed.data) {
-                                    accumulatedText += typeof parsed.data === "string"
-                                        ? parsed.data
-                                        : JSON.stringify(parsed.data);
-                                } else if (parsed.message) {
-                                    accumulatedText += parsed.message;
-                                }
-
-                                if (accumulatedText) {
+                                try {
+                                    const parsed = JSON.parse(jsonStr);
+                                    if (parsed.token) {
+                                        accumulatedText += parsed.token;
+                                        yield {
+                                            content: [{ type: "text", text: accumulatedText }],
+                                        };
+                                    } else if (parsed.text) {
+                                        accumulatedText = parsed.text;
+                                        yield {
+                                            content: [{ type: "text", text: accumulatedText }],
+                                        };
+                                    }
+                                } catch {
+                                    // не JSON, возможно простой текст токена
+                                    accumulatedText += jsonStr;
                                     yield {
                                         content: [{ type: "text", text: accumulatedText }],
                                     };
-                                }
-                            } catch {
-                                // Не JSON - просто добавляем как текст
-                                // Но пропускаем служебные сообщения SSE
-                                if (!dataContent.startsWith("[") && dataContent !== "ping") {
-                                    accumulatedText += dataContent;
-                                    yield {
-                                        content: [{ type: "text", text: accumulatedText }],
-                                    };
-                                }
-                            }
-                        }
-                    }
-
-                    // Обрабатываем остаток буфера
-                    if (buffer.trim()) {
-                        const remaining = buffer.trim();
-                        const dataMatch = remaining.startsWith("data:")
-                            ? remaining.slice(5).trim()
-                            : remaining;
-
-                        if (dataMatch) {
-                            try {
-                                const parsed = JSON.parse(dataMatch);
-                                if (typeof parsed === "string") {
-                                    accumulatedText += parsed;
-                                } else if (parsed.token) {
-                                    accumulatedText += parsed.token;
-                                } else if (parsed.text) {
-                                    accumulatedText = parsed.text;
-                                }
-                            } catch {
-                                if (!dataMatch.startsWith("[") && dataMatch !== "ping") {
-                                    accumulatedText += dataMatch;
                                 }
                             }
                         }
