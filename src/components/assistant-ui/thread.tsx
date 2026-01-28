@@ -6,6 +6,54 @@ import {
     MessagePrimitive,
 } from "@assistant-ui/react";
 
+/**
+ * Анимация загрузки - три бегущие точки
+ */
+function TypingIndicator() {
+    return (
+        <div
+            className="animate-message-enter"
+            style={{
+                maxWidth: "min(75%, 48rem)",
+                marginLeft: "0",
+                marginRight: "auto",
+            }}
+        >
+            <div
+                style={{
+                    background: "var(--assistant-bubble)",
+                    color: "var(--assistant-bubble-text)",
+                    border: "1px solid var(--assistant-bubble-border)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: "0.875rem 1rem",
+                    boxShadow: "var(--shadow-soft)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    minWidth: "60px",
+                    justifyContent: "center",
+                }}
+            >
+                <span className="typing-dot" style={{ animationDelay: "0ms" }} />
+                <span className="typing-dot" style={{ animationDelay: "150ms" }} />
+                <span className="typing-dot" style={{ animationDelay: "300ms" }} />
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Компонент для отображения индикатора во время загрузки
+ * Использует ThreadPrimitive.If для условного рендеринга
+ */
+function LoadingIndicator() {
+    return (
+        <ThreadPrimitive.If running>
+            <TypingIndicator />
+        </ThreadPrimitive.If>
+    );
+}
+
 function Bubble({ children, kind }: { children: React.ReactNode; kind: "user" | "assistant" }) {
     const isUser = kind === "user";
 
@@ -126,6 +174,8 @@ export function Thread() {
                     <ThreadPrimitive.Messages
                         components={{ UserMessage, AssistantMessage }}
                     />
+
+                    <LoadingIndicator />
                 </div>
             </ThreadPrimitive.Viewport>
 

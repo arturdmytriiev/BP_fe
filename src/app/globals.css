@@ -340,6 +340,27 @@ textarea:focus-visible {
   animation: messageEnter var(--transition-base) ease-out;
 }
 
+/* Typing Indicator Animation */
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  display: inline-block;
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+
 /* ===========================================
    Utility Classes
    =========================================== */
