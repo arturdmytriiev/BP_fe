@@ -7,6 +7,7 @@ import {
     useThread,
     useMessage,
 } from "@assistant-ui/react";
+import { MarkdownText } from "./markdown-text";
 
 /**
  * Анимация загрузки - три бегущие точки
@@ -100,10 +101,8 @@ function UserMessage() {
 }
 
 function AssistantMessage() {
-    // Проверяем есть ли контент в сообщении
     const hasContent = useMessage((m) => {
         if (!m.content || m.content.length === 0) return false;
-        // Проверяем есть ли текст в частях сообщения
         return m.content.some((part) => {
             if (part.type === "text" && part.text && part.text.trim().length > 0) {
                 return true;
@@ -112,13 +111,13 @@ function AssistantMessage() {
         });
     });
 
-    // Не показываем пустой пузырь пока нет контента
-    if (!hasContent) return null;
-
     return (
-        <MessagePrimitive.Root className="flex">
+        <MessagePrimitive.Root
+            className="flex"
+            style={{ display: hasContent ? undefined : "none" }}
+        >
             <Bubble kind="assistant">
-                <MessagePrimitive.Parts />
+                <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
             </Bubble>
         </MessagePrimitive.Root>
     );
@@ -167,7 +166,6 @@ export function Thread() {
                 background: "var(--bg)",
             }}
         >
-            {/* Messages Viewport */}
             <ThreadPrimitive.Viewport
                 className="flex-1 overflow-y-auto"
                 style={{
