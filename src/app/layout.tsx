@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import "./globals.css";
-import { MyRuntimeProvider } from "./MyRuntimeProvider";
+import { SessionProvider } from "./SessionContext";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="sk">
         <body>
-        <MyRuntimeProvider>{children}</MyRuntimeProvider>
+        <SessionProvider>
+            {children}
+        </SessionProvider>
         </body>
         </html>
     );
