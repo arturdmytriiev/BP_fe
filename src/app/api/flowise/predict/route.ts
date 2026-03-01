@@ -20,8 +20,10 @@ export async function POST(req: Request) {
     });
 
     if (!r.ok) {
+        const errorText = await r.text();
+        console.error(`[predict] Flowise error ${r.status}:`, errorText);
         return NextResponse.json(
-            { error: await r.text() },
+            { error: errorText },
             { status: r.status || 500 }
         );
     }
