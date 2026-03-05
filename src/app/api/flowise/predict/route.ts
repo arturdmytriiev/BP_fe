@@ -22,14 +22,28 @@ export async function POST(req: Request) {
     if (!r.ok) {
         const errorText = await r.text();
         console.error(`[predict] Flowise error ${r.status}:`, errorText);
-        return NextResponse.json(
-            { error: errorText },
-            { status: r.status || 500 }
-        );
+        let message = `Flowise error (${r.status})`;
+        try {
+            const parsed = JSON.parse(errorText);
+            message = parsed.message ?? parsed.error ?? message;
+        } catch {}
+        return NextResponse.json({ error: message }, { status: r.status || 500 });
     }
 
     const data: any = await r.json();
-    const text = data.text ?? data.answer ?? data?.data ?? "";
+    let text: string = data.text ?? data.answer ?? data?.data ?? "";
+    let videoUrl: string | null = data.videoUrl ?? data.video_url ?? data.video ?? null;
 
-    return NextResponse.json({ text });
+    // If text itself is JSON from the tool result (e.g. manim-renderer response)
+    if (!videoUrl && text) {
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed.video_url) {
+                videoUrl = parsed.video_url;
+                text = "";
+            }
+        } catch {}
+    }
+
+    return NextResponse.json({ text, ...(videoUrl ? { videoUrl } : {}) });
 }
