@@ -100,24 +100,38 @@ function UserMessage() {
     );
 }
 
+function VideoPlayer({ videoUrl }: { videoUrl: string }) {
+    return (
+        <video
+            src={videoUrl}
+            controls
+            autoPlay
+            muted
+            playsInline
+            style={{ width: "100%", borderRadius: "var(--radius-md)", marginTop: "0.5rem" }}
+        />
+    );
+}
+
 function AssistantMessage() {
-    const hasContent = useMessage((m) => {
-        if (!m.content || m.content.length === 0) return false;
-        return m.content.some((part) => {
-            if (part.type === "text" && part.text && part.text.trim().length > 0) {
-                return true;
-            }
-            return false;
-        });
+    const content = useMessage((m) => m.content as any[]);
+
+    const hasContent = content.some((part: any) => {
+        if (part.type === "text" && part.text?.trim()) return true;
+        if (part.type === "video" && part.videoUrl) return true;
+        return false;
     });
 
+    if (!hasContent) return null;
+
     return (
-        <MessagePrimitive.Root
-            className="flex"
-            style={{ display: hasContent ? undefined : "none" }}
-        >
+        <MessagePrimitive.Root className="flex">
             <Bubble kind="assistant">
-                <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+                {content.map((part: any, i: number) => {
+                    if (part.type === "text") return <MarkdownText key={i} text={part.text} />;
+                    if (part.type === "video") return <VideoPlayer key={i} videoUrl={part.videoUrl} />;
+                    return null;
+                })}
             </Bubble>
         </MessagePrimitive.Root>
     );

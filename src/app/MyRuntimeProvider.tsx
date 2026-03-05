@@ -26,9 +26,16 @@ function RuntimeForSession({ sessionId, children }: { sessionId: string; childre
                     signal: abortSignal,
                 });
 
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error || `Predict failed (${r.status})`);
-                return { content: [{ type: "text", text: data.text ?? "" }] };
+                const raw = await r.text();
+                let data: any = {};
+                try { data = JSON.parse(raw); } catch {}
+
+                if (!r.ok) {
+                    return { content: [{ type: "text", text: `⚠️ ${data.error || `Predict failed (${r.status})`}` }] };
+                }
+                const content: any[] = [{ type: "text", text: data.text ?? "" }];
+                if (data.videoUrl) content.push({ type: "video", videoUrl: data.videoUrl });
+                return { content };
             },
         }),
         [sessionId]
