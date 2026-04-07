@@ -2,6 +2,7 @@
 
 import { useSession as useAuthSession, signOut } from "next-auth/react";
 import { useSession, type Session } from "@/app/SessionContext";
+import { withBasePath } from "@/lib/base-path";
 
 function SessionItem({
     session,
@@ -76,7 +77,7 @@ export function SessionSidebar() {
                         </span>
                     </div>
                     <button
-                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        onClick={() => signOut({ callbackUrl: withBasePath("/login") })}
                         className="session-sidebar__logout"
                         title="Odhlásiť sa"
                     >

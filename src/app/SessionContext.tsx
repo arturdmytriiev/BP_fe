@@ -18,6 +18,7 @@ export interface Session {
 
 interface SessionContextType {
     currentSessionId: string | null;
+    userId: string | null;
     sessions: Session[];
     createNewSession: () => void;
     switchSession: (id: string) => void;
@@ -26,6 +27,9 @@ interface SessionContextType {
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
+
+const USER_ID_KEY = "flowise_user_id";
+
 
 function safeRandomId() {
     return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -68,11 +72,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     // null = not yet initialized (avoids mounting runtime with a temp ID)
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
 
     useEffect(() => {
         // Wait until auth is resolved and we have an email
         if (status === "loading" || !email) return;
+
+        // Persistent user ID — survives session resets, never changes
+        const storedUserId = localStorage.getItem(USER_ID_KEY) ?? safeRandomId();
+        localStorage.setItem(USER_ID_KEY, storedUserId);
+        setUserId(storedUserId);
 
         const stored = loadSessions(email);
         const storedCurrent = localStorage.getItem(currentSessionKey(email));
@@ -154,7 +164,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     return (
         <SessionContext.Provider
-            value={{ currentSessionId, sessions, createNewSession, switchSession, updateSessionLabel, deleteSession }}
+            value={{ currentSessionId, userId, sessions, createNewSession, switchSession, updateSessionLabel, deleteSession }}
         >
             {children}
         </SessionContext.Provider>

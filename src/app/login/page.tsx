@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { APP_BASE_PATH } from "@/lib/base-path";
 
 export default function LoginPage() {
     return (
@@ -13,7 +14,7 @@ export default function LoginPage() {
                     Prihláste sa pomocou vášho STU účtu
                 </p>
                 <button
-                    onClick={() => signIn("google", { callbackUrl: "/" })}
+                    onClick={() => signIn("google", { callbackUrl: APP_BASE_PATH })}
                     className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors cursor-pointer"
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">

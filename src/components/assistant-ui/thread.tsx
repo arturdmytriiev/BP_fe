@@ -8,10 +8,9 @@ import {
     useMessage,
 } from "@assistant-ui/react";
 import { MarkdownText } from "./markdown-text";
+import { QuizTimer } from "./quiz-timer";
 
-/**
- * Анимация загрузки - три бегущие точки
- */
+
 function TypingIndicator() {
     return (
         <div
@@ -124,8 +123,10 @@ function AssistantMessage() {
 
     if (!hasContent) return null;
 
+    const quizPart = content.find((part: any) => part.type === "quiz");
+
     return (
-        <MessagePrimitive.Root className="flex">
+        <MessagePrimitive.Root className="flex flex-col gap-2">
             <Bubble kind="assistant">
                 {content.map((part: any, i: number) => {
                     if (part.type === "text") return <MarkdownText key={i} text={part.text} />;
@@ -133,6 +134,7 @@ function AssistantMessage() {
                     return null;
                 })}
             </Bubble>
+            {quizPart && <QuizTimer timeLimit={quizPart.timeLimit} />}
         </MessagePrimitive.Root>
     );
 }

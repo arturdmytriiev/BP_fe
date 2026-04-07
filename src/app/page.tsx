@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { Thread } from "@/components/assistant-ui/thread";
 import { ThemeToggle } from "@/components/assistant-ui/theme-toggle";
 import { SessionSidebar } from "@/components/assistant-ui/session-sidebar";
 import { MyRuntimeProvider } from "@/app/MyRuntimeProvider";
 
-export default function Page() {
+export default async function Page() {
+    const session = await auth();
+
+    if (!session?.user) {
+        redirect("/login");
+    }
+
     return (
         <main className="h-screen flex overflow-hidden">
             <SessionSidebar />
