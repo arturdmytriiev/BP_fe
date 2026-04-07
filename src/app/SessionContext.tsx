@@ -8,6 +8,7 @@ import {
     useCallback,
     type ReactNode,
 } from "react";
+import { useSession as useAuthSession } from "next-auth/react";
 
 export interface Session {
     id: string;
@@ -26,9 +27,6 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-const SESSIONS_KEY = "flowise_sessions";
-const CURRENT_SESSION_KEY = "flowise_current_session_id";
-
 function safeRandomId() {
     return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
@@ -41,51 +39,64 @@ export function formatSessionLabel(date: Date) {
     );
 }
 
-function loadSessions(): Session[] {
+function sessionsKey(email: string) {
+    return `flowise_sessions_${email}`;
+}
+
+function currentSessionKey(email: string) {
+    return `flowise_current_session_id_${email}`;
+}
+
+function loadSessions(email: string): Session[] {
     try {
-        const raw = localStorage.getItem(SESSIONS_KEY);
+        const raw = localStorage.getItem(sessionsKey(email));
         return raw ? JSON.parse(raw) : [];
     } catch {
         return [];
     }
 }
 
-function saveSessions(sessions: Session[]) {
+function saveSessions(email: string, sessions: Session[]) {
     try {
-        localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+        localStorage.setItem(sessionsKey(email), JSON.stringify(sessions));
     } catch {}
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+    const { data: authSession, status } = useAuthSession();
+    const email = authSession?.user?.email ?? null;
+
     // null = not yet initialized (avoids mounting runtime with a temp ID)
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
 
     useEffect(() => {
-        const stored = loadSessions();
-        const storedCurrent = localStorage.getItem(CURRENT_SESSION_KEY);
+        // Wait until auth is resolved and we have an email
+        if (status === "loading" || !email) return;
+
+        const stored = loadSessions(email);
+        const storedCurrent = localStorage.getItem(currentSessionKey(email));
 
         if (stored.length > 0) {
             const current = stored.find((s) => s.id === storedCurrent) ?? stored[0];
             setCurrentSessionId(current.id);
             setSessions(stored);
         } else {
-            // Migrate legacy session ID so Flowise keeps its context
-            const legacyId = localStorage.getItem("flowise_session_id");
-            const id = legacyId ?? safeRandomId();
+            const id = safeRandomId();
             const session: Session = {
                 id,
                 createdAt: new Date().toISOString(),
-                label: legacyId ? "Previous chat" : formatSessionLabel(new Date()),
+                label: formatSessionLabel(new Date()),
             };
-            saveSessions([session]);
-            localStorage.setItem(CURRENT_SESSION_KEY, id);
+            saveSessions(email, [session]);
+            localStorage.setItem(currentSessionKey(email), id);
             setCurrentSessionId(id);
             setSessions([session]);
         }
-    }, []);
+    }, [email, status]);
 
     const createNewSession = useCallback(() => {
+        if (!email) return;
         const id = safeRandomId();
         const now = new Date();
         const session: Session = {
@@ -95,27 +106,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         };
         setSessions((prev) => {
             const updated = [session, ...prev];
-            saveSessions(updated);
+            saveSessions(email, updated);
             return updated;
         });
-        localStorage.setItem(CURRENT_SESSION_KEY, id);
+        localStorage.setItem(currentSessionKey(email), id);
         setCurrentSessionId(id);
-    }, []);
+    }, [email]);
 
     const switchSession = useCallback((id: string) => {
-        localStorage.setItem(CURRENT_SESSION_KEY, id);
+        if (!email) return;
+        localStorage.setItem(currentSessionKey(email), id);
         setCurrentSessionId(id);
-    }, []);
+    }, [email]);
 
     const updateSessionLabel = useCallback((id: string, label: string) => {
+        if (!email) return;
         setSessions((prev) => {
             const updated = prev.map((s) => (s.id === id ? { ...s, label } : s));
-            saveSessions(updated);
+            saveSessions(email, updated);
             return updated;
         });
-    }, []);
+    }, [email]);
 
     const deleteSession = useCallback((id: string) => {
+        if (!email) return;
         setSessions((prev) => {
             let updated = prev.filter((s) => s.id !== id);
             if (updated.length === 0) {
@@ -123,21 +137,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                 const session: Session = { id: newId, createdAt: new Date().toISOString(), label: formatSessionLabel(new Date()) };
                 updated = [session];
             }
-            saveSessions(updated);
+            saveSessions(email, updated);
             return updated;
         });
         setCurrentSessionId((cur) => {
             if (cur !== id) return cur;
-            // Active session was deleted — pick first from updated localStorage list
-            const remaining = JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? "[]") as Session[];
+            const remaining = JSON.parse(localStorage.getItem(sessionsKey(email)) ?? "[]") as Session[];
             const next = remaining[0];
             if (next) {
-                localStorage.setItem(CURRENT_SESSION_KEY, next.id);
+                localStorage.setItem(currentSessionKey(email), next.id);
                 return next.id;
             }
             return cur;
         });
-    }, []);
+    }, [email]);
 
     return (
         <SessionContext.Provider

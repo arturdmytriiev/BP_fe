@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession as useAuthSession, signOut } from "next-auth/react";
 import { useSession, type Session } from "@/app/SessionContext";
 
 function SessionItem({
@@ -36,6 +37,7 @@ function SessionItem({
 
 export function SessionSidebar() {
     const { sessions, currentSessionId, createNewSession, switchSession, deleteSession } = useSession();
+    const { data: authSession } = useAuthSession();
 
     const sorted = [...sessions].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -62,6 +64,26 @@ export function SessionSidebar() {
                     />
                 ))}
             </div>
+
+            {authSession?.user && (
+                <div className="session-sidebar__user">
+                    <div className="session-sidebar__user-info" title={authSession.user.email ?? ""}>
+                        <span className="session-sidebar__user-name">
+                            {authSession.user.name ?? authSession.user.email}
+                        </span>
+                        <span className="session-sidebar__user-email">
+                            {authSession.user.email}
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        className="session-sidebar__logout"
+                        title="Odhlásiť sa"
+                    >
+                        Odhlásiť sa
+                    </button>
+                </div>
+            )}
         </aside>
     );
 }
