@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { AUTH_BASE_PATH, stripBasePath, withBasePath } from "@/lib/base-path";
+import { recordUserLogin } from "@/lib/db";
 
 const ALLOWED_DOMAINS = ["stuba.sk", "stud.stuba.sk"];
 const isDevelopment = process.env.NODE_ENV !== "production";
@@ -13,16 +14,27 @@ if (isDevelopment) {
 
 export const authConfig = {
     basePath: AUTH_BASE_PATH,
-    providers: [Google],
+    providers: [
+        Google({
+            authorization: { params: { prompt: "select_account" } },
+        }),
+    ],
     pages: {
         signIn: withBasePath("/login"),
         error: withBasePath("/login"),
     },
     callbacks: {
-        signIn({ profile }) {
+        async signIn({ profile }) {
             const email = profile?.email;
             if (!email) return false;
-            return ALLOWED_DOMAINS.some((domain) => email.endsWith(`@${domain}`));
+            const allowed = ALLOWED_DOMAINS.some((domain) => email.endsWith(`@${domain}`));
+            if (!allowed) return false;
+            try {
+                await recordUserLogin(email);
+            } catch (e) {
+                console.error("[auth] failed to record login:", e);
+            }
+            return true;
         },
         authorized({ auth: session, request }) {
             const pathname = stripBasePath(request.nextUrl.pathname);

@@ -1,9 +1,20 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { APP_BASE_PATH } from "@/lib/base-path";
 
-export default function LoginPage() {
+function LoginContent() {
+    const searchParams = useSearchParams();
+    const error = searchParams.get("error");
+    const errorMessage =
+        error === "AccessDenied"
+            ? "Tento účet nie je povolený. Použite STU účet (@stuba.sk alebo @stud.stuba.sk)."
+            : error
+            ? "Pri prihlasovaní nastala chyba. Skúste to znova."
+            : null;
+
     return (
         <main className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
             <div className="text-center space-y-6 p-8 rounded-2xl bg-white dark:bg-gray-800 shadow-lg max-w-sm w-full">
@@ -13,6 +24,11 @@ export default function LoginPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     Prihláste sa pomocou vášho STU účtu
                 </p>
+                {errorMessage && (
+                    <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-md p-3">
+                        {errorMessage}
+                    </p>
+                )}
                 <button
                     onClick={() => signIn("google", { callbackUrl: APP_BASE_PATH })}
                     className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors cursor-pointer"
@@ -42,5 +58,13 @@ export default function LoginPage() {
                 </p>
             </div>
         </main>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginContent />
+        </Suspense>
     );
 }

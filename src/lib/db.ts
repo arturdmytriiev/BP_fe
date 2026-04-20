@@ -29,3 +29,30 @@ export async function initMemoryTables(): Promise<void> {
         )
     `);
 }
+
+export async function initUserLoginsTable(): Promise<void> {
+    const db = getPool();
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS user_logins (
+            id          SERIAL       PRIMARY KEY,
+            email       VARCHAR(255) NOT NULL,
+            login_date  DATE         NOT NULL DEFAULT CURRENT_DATE,
+            login_at    TIMESTAMP    NOT NULL DEFAULT NOW()
+        )
+    `);
+    await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_user_logins_date ON user_logins (login_date)
+    `);
+    await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_user_logins_email ON user_logins (email)
+    `);
+}
+
+export async function recordUserLogin(email: string): Promise<void> {
+    await initUserLoginsTable();
+    const db = getPool();
+    await db.query(
+        "INSERT INTO user_logins (email) VALUES ($1)",
+        [email]
+    );
+}

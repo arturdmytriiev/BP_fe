@@ -13,9 +13,9 @@ export default async function Page() {
     }
 
     return (
-        <main className="h-screen flex overflow-hidden">
+        <main className="h-[100dvh] flex overflow-hidden w-full">
             <SessionSidebar />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
                 <MyRuntimeProvider>
                     <Thread />
                 </MyRuntimeProvider>
